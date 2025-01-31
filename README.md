@@ -19,7 +19,7 @@ Lotteria-Fanpage-Analysis/
 
 ## Công nghệ sử dụng  
 - **Ngôn ngữ:** R  
-- **Thư viện:** ggplot2, dplyr, readxl, tidyverse  
+- **Thư viện:** SnowballC, ggplot2, igraph, lubridate, magrittr, readr, readxl, scales, tidyverse, tm, wordcloud
 - **Ứng dụng:** Phân tích dữ liệu & trực quan hóa  
 
 ## Cách sử dụng  
@@ -27,7 +27,8 @@ Lotteria-Fanpage-Analysis/
 ### 1️⃣ Cài đặt thư viện cần thiết trong R  
 Chạy lệnh sau trong **RStudio** để cài đặt thư viện:  
 ```r
-install.packages(c("ggplot2", "dplyr", "readxl", "tidyverse"))
+install.packages(c("SnowballC", "ggplot2", "igraph", "lubridate", "magrittr",
+                   "readr", "readxl", "scales", "tidyverse", "tm", "wordcloud"))
 ```
 
 ### 2️⃣ Chạy file R Markdown để tạo báo cáo  
@@ -37,4 +38,4 @@ rmarkdown::render("scripts/R-Lotteria-Fanpage-Analysis.rmd")
 ```
 
 ## Liên hệ  
-- **Tác giả:** [Lê Huỳnh Thúy Vy]  
+- **Tác giả:** Lê Huỳnh Thúy Vy 
