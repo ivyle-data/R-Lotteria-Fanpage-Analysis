@@ -9,12 +9,12 @@ Dự án này phân tích dữ liệu từ fanpage **Lotteria** giai đoạn **2
 3. **Xác định xu hướng và từ khóa ảnh hưởng đến sự tương tác.**  
 
 ## Cấu trúc thư mục  
-```
+```plaintext
 Lotteria-Fanpage-Analysis/
-│-- data/               # Chứa dữ liệu gốc
-│-- scripts/            # Chứa code R Markdown
-│-- reports/            # Chứa báo cáo xuất ra
-│-- README.md           # Mô tả dự án chi tiết
+├── data/               # Chứa dữ liệu gốc
+├── scripts/            # Chứa code R Markdown
+├── reports/            # Chứa báo cáo xuất ra
+└── README.md           # Mô tả dự án chi tiết
 ```
 
 ## Công nghệ sử dụng  
@@ -23,6 +23,7 @@ Lotteria-Fanpage-Analysis/
 - **Ứng dụng:** Phân tích dữ liệu & trực quan hóa  
 
 ## Cách sử dụng  
+
 ### 1️⃣ Cài đặt thư viện cần thiết trong R  
 Chạy lệnh sau trong **RStudio** để cài đặt thư viện:  
 ```r
