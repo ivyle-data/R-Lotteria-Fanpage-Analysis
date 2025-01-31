@@ -1,0 +1,835 @@
+---
+title: "Lotteria Fanpage Analysis"
+output: html_document
+date: "2024-03-03"
+---
+
+I. MỤC TIÊU PHÂN TÍCH
+
+Dữ liệu cần được phân tích là một tập tin Excel ghi lại các bài đăng và tương tác trên trang fanpage của chuỗi cửa hàng Lotteria từ năm 2012 đến năm 2022. Dựa vào tập tin đó, nhóm đã đề xuất các mục tiêu phân tích như sau:
+
+-   Hiểu rõ về sự phát triển của trang fanpage Lotteria từ 2012 đến 2022.
+
+    Trang fanpage của Lotteria là một nền tảng truyền thông quan trọng giúp thương hiệu tương tác với khách hàng. Việc nắm bắt được sự phát triển của trang này từ năm 2012 đến 2022 sẽ cung cấp cái nhìn tổng quan về cách mà sự hiện diện trực tuyến của Lotteria đã thay đổi và tiến triển qua các năm. Điều này có thể bao gồm tần suất đăng bài, nội dung baì đăng và sự tương tác từ cộng đồng mạng.
+
+-   Đánh giá hiệu suất bài đăng dựa trên tương tác của người dùng.
+
+    Việc đánh giá hiệu suất của các bài đăng trên trang fanpage Lotteria dựa trên tương tác của người dùng là một bước quan trọng để hiểu được mức độ ảnh hưởng và sự phổ biến của các nội dung được chia sẻ. Bằng cách phân tích số lượng like, comment, share và các hành động tương tác khác, chúng ta có thể xác định những bài đăng có nội dung thế nào thu hút được sự chú ý và tương tác cao nhất từ người dùng.
+
+-   Phân tích sự ảnh hưởng của xu hướng và từ khóa được sử dụng trong các bài đăng đến mức độ tương tác của người dùng.
+
+    Bằng cách phân tích các xu hướng và từ khóa được dùng chủ yếu, chúng ta có thể đánh giá được những từ khóa nào có thể kích thích sự tương tác từ phía người dùng, bao gồm cả số lượng like, comment, share và các hành động khác. Điều này giúp chúng ta hiểu rõ hơn về cách mà Lotteria tạo ra nội dung để thu hút và tương tác tích cực với cộng đồng mạng, từ đó cải thiện và tối ưu hóa chiến lược truyền thông.
+
+II. TÌM HIỂU DỮ LIỆU
+
+-   Tải packages và các thư viện cần dùng
+
+```{r}
+library(readxl)
+library(lubridate)
+library(ggplot2)
+library(tm)
+library(readr)
+library(SnowballC)
+library(magrittr)
+library(tidyverse)
+library(scales)
+library(igraph)
+library(wordcloud)
+```
+
+-   Đọc file data
+system("g++ --version")
+
+```{r}
+fanpost <- read_excel("fanpost_Lotteria Vietnam_W4.xlsx")
+fanpost <- data.frame(fanpost)
+
+stopwords_import <- read.csv('vietnamese-stopwords.txt')
+for (i in stopwords_import){
+  vietnamese_stopwords <- c(i)
+}
+```
+
+-   Số dòng, cột và cấu trúc dữ liệu
+
+```{r}
+dim(fanpost)
+str(fanpost)
+```
+
+Data Frame gồm 16 cột và 5241 dòng với tên cột lần lượt là:
+
+| Tên cột     | Kiểu dữ liệu | Mô tả                 |
+|-------------|--------------|-----------------------|
+| STT         | num          | Số thứ tự             |
+| create_time | chr          | Thời gian đăng bài    |
+| post_id     | chr          | Mã bài đăng           |
+| message     | chr          | Nội dung bài đăng     |
+| status      | chr          | Trạng thái bài đăng   |
+| comment     | num          | Số lượng bình luận    |
+| share       | num          | Số lượt chia sẻ       |
+| like        | num          | Số lượt thích         |
+| love        | num          | Số lượt yêu thích     |
+| haha        | num          | Số lượt haha          |
+| wow         | num          | Số lượt wow           |
+| sad         | num          | Số lượt buồn          |
+| angry       | num          | Số lượt phẫn nộ       |
+| thankful    | num          | Số lượt biết ơn       |
+| pride       | num          | Số lượt tự hào        |
+| care        | num          | Số lượt thương thương |
+
+Để đạt được mục tiêu phân tích đã đề ra, nhóm đã xác định các biến quan trọng cần được sử dụng trong quá trình phân tích gồm "message", "create_time" và tổng lượt tương tác. Bằng cách sử dụng những biến này, nhóm hy vọng có thể tạo ra những phân tích sâu hơn và phản ánh chính xác hơn về sự phát triển và hiệu suất của trang fanpage Lotteria qua các năm.
+
+-   Giá trị trống (Missing value)
+
+```{r}
+# Kiểm tra giá trị trống
+colSums(is.na(fanpost))
+```
+
+Trong phạm vi thời gian phân tích, biến "message" có 230/5241 giá trị NA (4.39%) và biến "status" có 85/5241 giá trị NA (1.62%), trong khi các biến khác không có giá trị NA. Các giá trị NA của cả hai biến chủ yếu tập trung trong khoảng thời gian từ tháng 6/2013 đến hết năm 2015.
+
+Ở các dòng dữ liệu có giá trị NA ở hai biến status và message, các số liệu tương tác vẫn được ghi nhận. Do đó, nhóm đã ghi nhận giá trị NA nhưng không loại bỏ chúng khi phân tích, nhằm duy trì tính toàn vẹn và chính xác của dữ liệu.
+
+-   Đổi múi giờ
+
+Để phù hợp với bối cảnh dữ liệu, nhóm đã thực hiện việc chuyển đổi thời gian trong cột "create_time" sang múi giờ Việt Nam. Quá trình này giúp nhóm có cái nhìn toàn diện hơn về cách mà các bài đăng và hoạt động tương tác thay đổi theo thời gian và trong ngữ cảnh địa lý cụ thể của thị trường Việt Nam.
+
+```{r}
+# Đổi sang múi giờ Việt Nam
+fanpost$create_time <- as.POSIXct(fanpost$create_time, tz = "UTC", "%Y-%m-%dT%H:%M:%OS")
+fanpost$create_time_VN <- with_tz(fanpost$create_time, tz = "Asia/Saigon")
+```
+
+-   Thêm các cột timestamp
+
+Để có thể phân tích xu hướng ở các mốc thời gian khác nhau, nhóm đã sử dụng thư viện lubridate để tách và thêm các cột mới như giờ, thứ, ngày, tháng, năm từ thời gian trong cột "create_time”.
+
+```{r}
+# Tách thời gian
+fanpost$Year <- year(fanpost$create_time_VN)
+fanpost$Month <- month(fanpost$create_time_VN, label = TRUE)
+fanpost$Day <- day(fanpost$create_time_VN)
+fanpost$Weekday <-wday(fanpost$create_time_VN, label=TRUE)
+fanpost$Hour <- hour(fanpost$create_time_VN)
+```
+
+-   Tính điểm react và comment
+
+Để phân tích mức độ tương tác của người dùng, nhóm đã tổng hợp số lượt tương tác ở các mục riêng lẻ về cảm xúc (như like, love, haha, wow, sad, angry, thankful, pride, care) và các tương tác khác (comment, share) thành hai biến mới là "react_score" và "comment_score".
+
+Biến "react_score" được tính bằng tổng số lượt tương tác từ các cảm xúc, trong đó số lượt tương tác về các cảm xúc "sad" và "angry" là số âm, phản ánh sự tiêu cực của cộng đồng mạng đối với bài đăng. Biến "comment_score" là tổng số lượt bình luận và chia sẻ.
+
+```{r}
+# Tính điểm react_score
+fanpost$react_score <-fanpost$like + fanpost$love + fanpost$haha + fanpost$wow - fanpost$sad - fanpost$angry + fanpost$thankful + fanpost$pride + fanpost$care
+
+# Tính điểm comment_score
+fanpost$comment_score <- fanpost$comment + fanpost$share
+```
+
+-   Dữ liệu sau khi thêm các cột
+
+```{r}
+head(fanpost)
+```
+
+III. Khám phá dữ liệu
+
+-   Thống kê mô tả
+
+```{r}
+#Bảng thống kê mô tả
+summary(fanpost$react_score)
+summary(fanpost$comment_score)
+```
+
+Từ bảng thống kê mô tả, các chỉ số thống kê của "react score" đều lớn hơn rất nhiều so với "comment score", cho thấy người dùng thường chuộng tương tác thông qua việc sử dụng biểu tượng cảm xúc nhiều hơn so với việc tương tác bằng cách bình luận và chia sẻ. Điều này có thể là do tính tiện lợi và tốc độ trong việc truyền đạt ý kiến hoặc cảm xúc của họ.
+
+```{r}
+# Phân phối biến react_score
+hist(fanpost$react_score, main="Histogram of React score")
+# Phân phối biến comment_score
+hist(fanpost$comment_score, main="Histogram of React score")
+```
+
+Từ bảng thống kê mô tả và biểu đồ phân phối ở cả 2 biến react_score và comment_score, giá trị mean đều lớn hơn median và các giá trị thường cao đột biến tại nửa bên trái, thấp ở nửa bên phải cho thấy dữ liệu cả 2 biến đều lệch phải (right skewed)
+
+```{r}
+# Phương sai
+round(sd(fanpost$react_score),2)
+round(sd(fanpost$comment_score),2)
+```
+
+Bên cạnh đó, cả hai biến đều có khoảng biến thiên và phương sai lớn, tức là có sự biến động đáng kể giữa các giá trị dữ liệu. Tuy nhiên, giá trị mean và tứ phân vị thứ ba (75% quan sát) lại khá nhỏ so với khoảng biến thiên này. Điều này cho thấy dữ liệu có thể chứa nhiều điểm dữ liệu bất thường (giá trị ngoại lai).
+
+```{r}
+# Biểu đồ Normal Q-Q biến react_score
+qqnorm(fanpost$react_score)
+qqline(fanpost$react_score)
+
+# Biểu đồ Normal Q-Q biến comment_score
+qqnorm(fanpost$comment_score)
+qqline(fanpost$comment_score)
+```
+
+Kết hợp với biểu đồ Normal Q-Q, cả 2 biến đều không phân bố đồng đều gần đường xu hướng và đều có nhiều giá trị ngoại lai với giá trị lớn cần được xem xét kỹ lưỡng trong quá trình phân tích và đánh giá.
+
+-   Giá trị ngoại lai
+
+Như đã nêu trên, cả 2 biến react_score và comment score phân phối lệch một cách rõ ràng nên nhóm quyết định chọn phương pháp IQR để xác định và loại bỏ outliers vì phương pháp này không phụ thuộc vào dạng phân phối của dữ liệu.
+
+Do tập dữ liệu không lớn và có nhiều giá trị ngoại lai với giá trị rất cao, để tránh mất mát dữ liệu và đảm bảo tính chính xác của quá trình phân tích, nhóm chọn ghi nhận các giá trị ngoại lai lệch rất nhiều (extreme outliers) với k=3.
+
+```{r}
+# Tìm outlies bằng IQR
+react_score <- fanpost$react_score
+comment_score <- fanpost$comment_score
+# Tính Q1 và Q3 cho cả hai cột
+Q1_react <- quantile(react_score, 0.25)
+Q3_react <- quantile(react_score, 0.75)
+
+Q1_comment <- quantile(comment_score, 0.25)
+Q3_comment <- quantile(comment_score, 0.75)
+
+# Tính IQR cho cả hai cột
+IQR_react <- IQR(react_score)
+IQR_comment <- IQR(comment_score)
+
+# Xác định khoảng giá trị bình thường cho cả hai cột
+k <- 3
+lower_bound_react <- Q1_react - k * IQR_react
+upper_bound_react <- Q3_react + k * IQR_react
+
+lower_bound_comment <- Q1_comment - k * IQR_comment
+upper_bound_comment <- Q3_comment + k * IQR_comment
+
+# Xác định outlier cho cả hai cột
+outliers_react_low <- react_score[react_score < lower_bound_react]
+outliers_react_high <- react_score[react_score > upper_bound_react]
+
+outliers_comment_low <- comment_score[comment_score < lower_bound_comment]
+outliers_comment_high <- comment_score[comment_score > upper_bound_comment]
+
+# Hiển thị kết quả
+print("Outliers in React score (lower)")
+print(outliers_react_low)
+
+print("Outliers in React score (higher)")
+print(outliers_react_high)
+
+print("Outliers in Comment score (lower)")
+print(outliers_comment_low)
+
+print("Outliers in Comment score (higher)")
+print(outliers_comment_high)
+```
+
+Biến react_score có 307 giá trị ngoại lai và biến comment_score có 445 giá trị ngoại lai được ghi nhận.
+
+-   Số lượng bài đăng theo năm
+
+```{r}
+# số lượng bài đăng theo năm 
+p1 <- ggplot(data = fanpost, aes(x = Year)) +
+  geom_bar(stat='count',  fill = "lightblue") +
+  labs(x = "Year", y = "Number of posts",
+       title = "Number of Posts for Each Year") +
+  theme_minimal() + scale_x_continuous(breaks = unique(fanpost$Year))
+
+print(p1)
+```
+
+Từ biểu đồ, có thể nhận thấy rằng số lượng bài đăng năm 2012 là cao nhất. Điều này là do trong năm đó, các bài đăng chủ yếu là các bài dự thi của các thí sinh tham gia các cuộc thi được tổ chức bởi Lotteria.
+
+Tuy nhiên, từ năm 2012 đến 2015, số lượng bài đăng biến động mạnh và bất thường. Năm 2012 có số bài đăng cao nhất, gần 1000 bài đăng được ghi nhận. Tuy nhiên, trong những năm tiếp theo, có một sự giảm đáng kể, với khoảng 100 bài đăng vào năm 2013, khoảng 50 bài vào năm 2014 và chỉ có 2 bài được ghi nhận vào năm 2015.
+
+Từ giai đoạn 2016 đến 2022, số lượng bài đăng đã ổn định và có xu hướng giảm dần. Mặc dù vẫn có sự biến động trong số liệu, nhưng nó không còn quá đáng kể như trong giai đoạn trước đó.
+
+-   Số lượng bài đăng theo giờ
+
+```{r}
+# Số lượng bài đăng theo giờ
+p2 <- ggplot(data = fanpost, aes(x = Hour)) +
+  geom_bar(stat='count', fill="lightblue") +
+  labs(x = "Hour", y = "Number of posts",
+       title = "Number of Posts for Each Hour") +
+  theme_minimal() + scale_x_continuous(breaks = unique(fanpost$Hour))
+
+print(p2)
+```
+
+Các bài đăng thường được đăng vào các khoảng thời gian từ 9 đến 12 giờ, 14 đến 17 giờ. Đây cũng là những khoảng thời gian tốt nhất để đăng bài. (Theo: Sprout Social)
+
+-   Số lượng bài đăng theo thứ
+
+```{r}
+p3 <- ggplot(data = fanpost, aes(x = Weekday)) +
+  geom_bar(stat='count',  fill="lightblue") +
+  labs(x = "Weekday", y = "Number of posts",
+       title = "Barplot of Number of Posts for Each Weekday") +
+  theme_minimal()
+
+print(p3)
+```
+
+Các bài đăng được đăng nhiều hơn vào các ngày trong tuần, với số lượng cao nhất vào thứ Sáu, trong khi có số lượng bài đăng thấp hơn nhiều vào 2 ngày cuối tuần.
+
+-   Tống tương tác
+
+```{r}
+fanpost$total <- fanpost$react_score+fanpost$comment_score
+```
+
+-   Tổng tương tác theo năm
+
+```{r}
+average_total_score_yearly <- aggregate(fanpost$total, by= list(fanpost$Year),FUN = mean)
+
+p4 <- ggplot(data = average_total_score_yearly, aes(x = Group.1, y= x)) +
+  geom_bar(stat='identity', fill="lightblue") +
+  labs(x = "Year", y = "Average of Total React Score",
+       title = "Average of Total React Score per Year") +
+  theme_minimal() + scale_x_continuous(breaks = unique(average_total_score_yearly$Group.1))
+
+print(p4)
+```
+
+Mặc dù năm 2012 có số lượng bài đăng cao nhất nhưng số lượt tương tác của người dùng lại thấp hơn rất nhiều so với các năm khác. Điều này có thể là do các bài đăng chủ yếu là bài dự thi của thí sinh như đã nói trên nên không quá thu hút sự quan tâm của đa số người dùng.
+
+Trong khi đó, số lượt tương tác có xu hướng tăng trong giai đoạn từ 2018 đến 2022, mặc dù số lượng bài đăng giảm dần cho thấy hiệu quả tương tác ngày càng cao hơn ở mỗi bài đăng, đồng thời cho thấy sự chú ý và tương tác tích cực của cộng đồng người dùng trong thời gian này.
+
+Ngoài ra, bên cạnh số lượng bài đăng, số lượt tương tác cũng ổn định hơn từ năm 2016 đến năm 2022. Vì thế, để đảm bảo tính tổng quất trong các phân tích sâu hơn tiếp theo, nhóm sẽ phân tích chủ yếu các số liệu từ năm 2016.
+
+Tổng tương tác theo giờ
+
+```{r}
+average_total_score_hourly <- aggregate(fanpost$total, by= list(fanpost$Hour),FUN = mean)
+
+p5 <- ggplot(data = average_total_score_hourly, aes(x = Group.1, y= x)) +
+  geom_bar(stat='identity', fill="lightblue") +
+  labs(x = "Hour", y = "Average of Total React Score",
+       title = "Average of Total React Score per Hour") +
+  theme_minimal() + scale_x_continuous(breaks = unique(average_total_score_hourly$Group.1))
+
+print(p5)
+```
+
+Có sự cao bất thường ở số lượt tương tác của người dùng vào 1 giờ do có một giá trị ngoại lai với số lượt like cao hơn hẳn (12071 lượt) so với các bài đăng còn lại, khiến cho giá trị trung bình lượt tương tác vào 1 giờ cũng cao hơn hẳn các giờ khác.
+
+```{r}
+# Biến dữ liệu thành Corpus
+fanpostCorpus <- Corpus(VectorSource(fanpost$message))
+```
+
+```{r}
+# Transform dữ liệu
+fanpostCorpus <- tm_map(fanpostCorpus, content_transformer(tolower)) # Viết thường
+fanpostCorpus <- tm_map(fanpostCorpus, removePunctuation) # Bỏ dấu
+fanpostCorpus <- tm_map(fanpostCorpus, removeNumbers) # Bỏ những con số
+fanpostCorpus <- tm_map(fanpostCorpus, removeWords, vietnamese_stopwords) # Bỏ stopwords
+fanpostCorpus <- tm_map(fanpostCorpus, stripWhitespace) # Bỏ khoảng trắng
+fanpostCorpus <- tm_map(fanpostCorpus, stemDocument) # Stemming
+```
+
+```{r}
+# Tạo Term Document matrix
+fanpostTDM <- TermDocumentMatrix(fanpostCorpus, control = list(wordLenghts=c(1,Inf)))
+fanpostTDM <- removeSparseTerms(fanpostTDM, 0.9)
+fanpostTDM <- as.matrix(fanpostTDM)
+```
+
+```{r}
+#Tìm các từ phổ biến nhất
+freq <-rowSums(fanpostTDM)
+
+print(freq)
+barplot(freq, las=2, col=rainbow(50), cex.names = 0.4)
+```
+Từ kết quả trên cho thấy một số từ có tần suất xuất hiện nhiều nhất như: lotteria, hàng, cửa,... 
+Tiếp theo, nhóm thực hiện bước tìm tổng số dòng mà mỗi từ trên xuất hiện (tức số message có các từ trên) để tìm những từ có tần suất xuất hiện nhiều nhất trong tất cả các bài đăng.
+```{r}
+# Tính tổng số dòng mà mỗi từ trên xuất hiện (tức số message có các từ trên)
+num_docs_with_word <- rowSums(as.matrix(fanpostTDM) > 0)
+
+# Hiển thị kết quả
+print(num_docs_with_word)
+barplot(num_docs_with_word, las=2, col=rainbow(50), cex.names = 0.4)
+```
+Dựa trên kết quả phân tích tần suất xuất hiện của từng từ trong các bài đăng, chúng ta có thể nhận thấy một số từ được sử dụng nhiều nhất như "lotteria", "hàng", "cửa", và "gà". Tuy nhiên, khi kết hợp cả hai kết quả trên, ta nhận thấy một số từ xuất hiện nhiều lần không chỉ trong một số bài đăng mà còn trong nhiều bài đăng khác nhau. Ví dụ, từ "lotteria" thường xuất hiện trong hashtag ở cuối mỗi bài đăng và trong nội dung của bài đăng, có thể thấy sự xuất hiện dày đặc là cách để thương hiệu "lotteria" được nhận diện bởi người dùng. Đi kèm với "lotteria", còn có từ "lotteriavietnam".
+Để tìm hiểu sâu hơn về các nhóm từ mang tính đặc trưng của từng bài đăng, nhóm quyết định loại bỏ những từ chung chung xuất hiện nhiều lần như "lotteria" và "lotteriavietnam". Ngoài ra, từ "hàng" cũng là một từ được sử dụng nhiều thứ hai, thường kết hợp với từ "cửa" để tạo thành cụm từ "cửa hàng". Do đó, nhóm quyết định loại bỏ từ "cửa hàng" khỏi danh sách các từ để tập trung vào những từ mang tính đặc trưng và cụ thể hơn của từng bài đăng.
+```{r}
+sorted_freq <- sort(freq, decreasing = TRUE)
+print(sorted_freq)
+```
+
+```{r}
+# Loại bỏ từ đơn, từ ghép thường xuất hiện: "lotteria", "lotteriavietnam", "cửa hàng",... khỏi fanpostCorpus
+
+# Danh sách các từ cần loại bỏ
+words_to_remove <- c("lotteria", "cửa hàng", "lotteriavietnam")
+
+# Loại bỏ các từ khỏi mỗi tài liệu trong fanpostCorpus
+fanpostCorpus <- lapply(fanpostCorpus, function(doc) {
+  for (word in words_to_remove) {
+    doc <- gsub(word, "", doc)
+  }
+  return(doc)
+})
+
+# Chuyển đổi fanpostCorpus thành dataframe
+fanpostData <- data.frame(text = sapply(fanpostCorpus, as.character), stringsAsFactors = FALSE)
+
+# In ra một số dòng đầu của dataframe mới
+head(fanpostData)
+```
+Sau khi có data của message mới đã loại bỏ các yếu tố trên, thêm cột mới có tên là new_mesage vào dataset fanpost để tiếp tục phân tích các nhóm từ có đặc trưng rõ ràng hơn.
+```{r}
+# Thêm cột mới từ fanpostData vào fanpost
+fanpost$new_message <- fanpostData$text
+
+# In kết quả
+head(fanpost)
+```
+Nhóm tiến hành phân tích độ dài trung bình của các bài viết theo năm, sau đó so sánh với lượng tương tác trung bình nhằm kiểm tra sự ảnh hưởng của chiều dài bài viết tới độ tương tác.
+
+```{r}
+# Phân cụm
+positive <- subset(fanpost, react_score > 411)
+negative <- subset(fanpost, react_score < 60)
+neutral <- subset(fanpost, react_score >= 60 & react_score <= 411)
+```
+Sau đó, dựa trên react_score phân thành 3 cụm gồm: positive, negative và neutral.
+-   Phân tích dòng
+```{r}
+#Tính chiều dài của từng dòng message
+fanpostData$text_length <- nchar(fanpostData$text)
+fanpostData
+```
+Theo kết quả trên so sánh với biểu đồ trung bình react theo năm, có thể thấy ít sự tương quan về ảnh hưởng của độ dài bài viết tới độ tương. Vì vậy, nhóm chuyển sang hướng chia cụm dựa trên điểm tương tác.
+Nhóm tiến hành tính điểm tương tác qua công thức: react_score = like + love + haha + wow - sad - angry + thankful + care.
+Tính điểm comment = comment + share
+```{r}
+# Thêm cột mới từ fanpostData vào fanpost
+fanpostData$Year <- fanpost$Year
+
+# In kết quả
+head(fanpostData)
+```
+
+```{r}
+# Tính trung bình tổng số từ của cột fanpostData qua từng năm
+average_word_count_by_year <- aggregate(fanpostData$text_length, by=list(fanpostData$Year), FUN = mean)
+
+# In kết quả
+print(average_word_count_by_year)
+```
+
+4.2. Phân tích cụ thể từng cụm
+
+- Phân tích cụm Positive
+
+
+
+-   Kiểm tra dữ liệu
+
+```{r, warning = FALSE}
+# Kiểm tra data 
+dim(positive)
+# Đếm missing values
+sum(is.na(positive))
+```
+
+Kiểm tra cụm positive có 10 dòng chứa giá trị NA trên tổng 1309 dòng; chiếm 0,007%. - Xử lý dữ liệu
+
+```{r, warning = FALSE}
+# Tạo corpus cho cụm positive
+positiveMessage <- positive$new_message
+positiveCorpus <- Corpus(VectorSource(positiveMessage))
+
+# Thêm thông tin năm cho positiveCorpus
+meta(positiveCorpus, tag = "Create_Year") <- positive$Year
+```
+
+-   Tạo TDM
+
+```{r, warning = FALSE}
+# Tạo TDM cho cụm positive
+positiveTDM <- TermDocumentMatrix(positiveCorpus, control = list(wordLenghts=c(1,Inf)))
+positiveTDM <- removeSparseTerms(positiveTDM, 0.9)
+inspect(positiveTDM)
+dim(positiveTDM)
+
+```
+
+Chọn ngưỡng tuần suất tối thiểu là 0.9, nhận được 102 từ đơn. Với đoạn mẫu hiển thị của Term Document Matrix, có thể nhận thấy các chữ đều có nghĩa, nhóm dự đoán các từ đơn này thuộc từ ghép và theo xu hướng, chủ đề nào đó.
+
+-   Xác định từ khóa phổ biến
+
+```{r, warning = FALSE}
+# Xác định từ khóa phổ biến
+term_freq <- rowSums(as.matrix(positiveTDM))
+top_keywords <- head(sort(term_freq, decreasing = TRUE), 20)
+print(top_keywords)
+
+
+```
+
+Danh sách 20 từ đơn được sử dụng nhiều nhất trong cụm positive đều là từ đơn có nghĩa.
+
+-   Kiểm tra độ tương quan giữa các từ đơn
+
+```{r, warning = FALSE}
+# Lấy danh sách các từ khóa
+keywords <- names(top_keywords)
+
+# Tạo ma trận chứa thông tin về sự xuất hiện của từng từ khóa trong mỗi bài viết positive
+keyword_matrix <- sapply(keywords, function(keyword) grepl(keyword, positive$new_message, ignore.case = TRUE))
+
+# Tính ma trận tương quan giữa các từ khóa
+correlation_matrix <- cor(keyword_matrix)
+
+# In ma trận tương quan
+print(correlation_matrix)
+
+# Vẽ biểu đồ nhiệt tương quan
+heatmap(correlation_matrix, 
+        col = colorRampPalette(c("white", "blue"))(20),
+        main = "Biểu đồ nhiệt tương quan giữa các từ khóa trong bài viết positive")
+
+# Vẽ biểu đồ mạng các từ khóa có giá trị tương quan hơn 0.5
+library(igraph)
+keyword_network <- graph.adjacency(correlation_matrix > 0.5, mode = "undirected")
+plot(keyword_network, main = "Biểu Đồ Mạng Tương Quan Từ Khóa trong Bài Viết Positive")
+
+```
+
+Ma trận tương quan thể hiện giá trị tương quan của 20 từ khóa nổi bật, để trực quan rõ hơn, nhóm sử dụng biểu đồ nhiệt thể hiện sử tương quan cho ma trận 20 từ khóa và biểu đồ mạng tương quan để trực quan những mối quan hệ tương quan lớn hơn 0,5. Đối với biểu đồ nhiệt, có thể dễ nhìn rõ hơn rằng 20 từ đơn này có liên quan nhiều đến nhau vì có rất nhiều cụm màu đậm và ít cụm màu trắng. Biểu đồ mạng tương quan thể hiện sâu hơn các cụm chữ thường đi liền với nhau, cho thấy 2 chủ đề mà bài viết có lượng tương tác cao: Chương trình khuyến mãi (với từ khóa là: combo, khoai tây, gà rán, pepsi, chương trình, khuyến mãi, áp dụng, giao hàng...) và Cuộc thi (với từ khóa là: dự thi, giải, hình, comment, bình luận,...).
+
+-   Kiểm tra về lượng tương tác tích cực theo thời gian và độ dài caption
+
+```{r}
+# Kiểm tra tương tác tích cực theo độ dài câu
+positive$word_count <- sapply(strsplit(positive$message, "\\s+"), length)
+ggplot(positive, aes(x = word_count, y = react_score)) +
+  geom_point() +
+  geom_smooth() +
+  labs(title = "Tương tác tích cực theo độ dài câu")
+```
+
+Độ dài câu thường từ dưới 500 từ đơn, và các bài viết được tương tác tích cực nằm phần lớn ở khoảng này.
+
+-   Kiểm tra thời gian fanpage đăng các bài viết được tương tác tích cực
+
+```{r}
+# Tạo biến thời gian
+positive$hour <- format(positive$create_time_VN, format = "%H")
+
+# Tạo biểu đồ
+ggplot(positive, aes(x = hour)) +
+  geom_bar(fill = "skyblue", color = "black") +
+  labs(title = "Phân phối thời gian đăng bài tích cực",
+       x = "Giờ",
+       y = "Số lượng bài viết") +
+  theme_minimal()
+```
+
+Các bài viết nhận được tương tác cao thường được đăng tải vào 2 khung giờ: 9 giờ đến 11 giờ sáng, 14 giờ đến 16 giờ chiều. Đây là 2 khung giờ trước bữa trưa và bữa tối, thích hợp để đăng các bài truyền thông khuyến mãi, combo, giao hàng, tương thích với những từ khóa đã phân tích trước đó. Đặc biệt, khung 10 giờ đến 11 giờ có số lượng bài đăng cao nhất, có thể vì khung giờ này phù hợp để để truyền thông cho các bộ phận dân văn phòng, sinh viên dùng bữa trưa bên ngoài nhiều hơn so với bữa tối. Ngoài ra, các khung giờ 19 giờ đến 21 giờ cũng có số lượng bài đăng tương đối, vì đây là thời gian nghỉ ngơi cuối ngày, và cũng dẫn đến khung giờ hiếm khi đăng bài trên fanpage là từ 23 giờ đến 7 giờ sáng.
+
+## Phần cụm Neutral
+
+Phần preprocessing
+
+```{r, warning=FALSE}
+# Biến dữ liệu thành Corpus
+neutralMessage <- neutral$new_message
+neutralCorpus <- Corpus(VectorSource(neutralMessage))
+
+# Thêm metadata
+meta(neutralCorpus, tag = "id") <- neutral$post_id
+meta(neutralCorpus, tag = "create_Year") <- neutral$Year
+meta(neutralCorpus, tag = "status") <- neutral$status
+meta(neutralCorpus, tag = "React_score") <- neutral$react_score
+meta(neutralCorpus, tag = "comment_score") <- neutral$comment_score
+
+# Transform dữ liệu
+neutralCorpus <- tm_map(neutralCorpus, content_transformer(tolower)) # Viết thường
+neutralCorpus <- tm_map(neutralCorpus, removePunctuation) # Bỏ dấu
+neutralCorpus <- tm_map(neutralCorpus, removeNumbers) # Bỏ những con số
+neutralCorpus <- tm_map(neutralCorpus, removeWords, stopwords) # Bỏ stopwords
+neutralCorpus <- tm_map(neutralCorpus, stripWhitespace) # Bỏ khoảng trắng
+neutralCorpus <- tm_map(neutralCorpus, stemDocument) # Stemming
+```
+
+### Tạo TDM
+```{r, warning=FALSE}
+# Create the Term Document Matrix
+neutralTDM <- TermDocumentMatrix(neutralCorpus, control = list(wordLengths = c(1, Inf)))
+neutralTDM <- removeSparseTerms(neutralTDM, 0.9)
+
+# Examine the TDM
+inspect(neutralTDM)
+```
+## Insight
+Với độ sparse tầm 80%, kết quả cho thấy sự phân bổ của các từ khá là đều, không có từ nào quá nổi bật và đa số được dùng trong mọi bài đăng. Từ "gà", "hàng", "giao" xuất hiện với tần suất cao. Cho thấy các từ được sử dùng nhiều lần trong một bài đăng cụ thể.
+
+## Tìm những từ phổ biến nhất
+```{r}
+# Find the most frequent terms
+term_freq <- rowSums(as.matrix(neutralTDM))
+term_freq <- sort(term_freq, decreasing = TRUE)
+head(term_freq, 20) # Display the top 20 most frequent terms
+```
+## Insight
+Đúng với nhận xét trên, các từ được sử dụng nhiều nhất là 'gà', 'hàng',... Tuy nhiên, có vài từ không có nghĩa xuất hiện ở trên kết quả như 'k', 'd', 'm'; Hiện tượng này xảy ra là do trong quá trình tiền xử lý dữ liệu đã bỏ mất context. Ví dụ giá tiền thường được ghi là '39k', '4000d', trong quá trình tiền xử lý đã bỏ mất những con số bỏ lại các ký tự. Có thể xem các ký tự là giá tiền của một sản phẩm nào đó được giới thiệu trong bài đăng.
+
+## Phân tích wordcloud
+```{r}
+wordcloud(names(term_freq), term_freq, scale = c(4, 0.5), max.words = 100, random.order = FALSE, colors = brewer.pal(8, "Dark2"))
+```
+## Insight
+Sau khi phân tích wordcloud, nhóm nhận thấy được các từ liên quan đến món ăn như là 'gà', 'khoai tây', 'burger' được sử dụng nhiều, các từ liên quan đến chương trình khuyến mãi như 'combo', 'áp - dụng' cũng được dùng khá là nhiều. Điều này cho thấy rằng Lotteria thường xuyên đăng bài về các deals, khuyến mãi, giới thiệu sản phẩm mới để tăng doanh thu.
+
+## Phân tích thể loại bài đăng theo năm
+```{r}
+# Aggregate data by year and status, counting the number of posts
+yearly_status_counts <- fanpost %>%
+  group_by(Year, status) %>%
+  summarise(count = n(), .groups = 'drop')
+
+# Calculate the total posts per year
+yearly_totals <- yearly_status_counts %>%
+  group_by(Year) %>%
+  summarise(total = sum(count))
+
+# Join the totals back to the original aggregated data
+yearly_status_percentages <- yearly_status_counts %>%
+  left_join(yearly_totals, by = "Year") %>%
+  mutate(percentage = (count / total) * 100)
+
+# Plot the data, showing the percentage of each status per year
+# Plot with annotations
+# Base plot
+p <- ggplot(yearly_status_percentages, aes(x = Year, y = percentage)) +
+  geom_bar(aes(fill = status), stat = "identity", position = "fill") + # Stacked percentage bars
+  geom_text(aes(label = count, group = status), position = position_fill(vjust = 0.5), size = 3, color = "white") + # Add count annotations within bars
+  scale_y_continuous(labels = percent_format()) + # Format y-axis as percentage
+  labs(title = "Post Statuses Over Time",
+       x = "Year",
+       y = "Percentage",
+       fill = "Status") +
+  theme_minimal()
+
+# Add total posts annotations at the top
+p <- p + geom_text(data = yearly_totals, aes(x = Year, label = total), y = 100, vjust = 0, size = 3, color = 'red')
+
+# Display the plot
+print(p)
+```
+
+## Insight
+Theo xu hướng ở trên, cụm neutral cũng theo xu hướng như thế với số lượng cao vào năm 2012, thấp hoặc gần như không có vào các năm tiếp theo, và ổn định vào năm 2016 trở đi. Kết quả trên thể hiện rằng tuy có sự thay đổi trong số lượng bài đăng nhưng tỷ lệ các loại bài đăng khá là đều với tỷ lệ bài đăng kèm ảnh chiếm đa số trừ trường hợp vào 2012, 2013. Điều này cho thấy rằng xu hướng các bài đăng vẫn giữ ổn định qua các thời kỳ.
+
+## Phân tích điểm tương tác và thể loại bài đăng
+
+```{r}
+# Filter fanpost to include only entries from 2016 and beyond
+fanpost_filtered <- fanpost %>% 
+  filter(Year >= 2016)
+
+status_scores_yearly <- fanpost_filtered %>%
+  group_by(Year, status) %>%
+  summarise(average_react_score = mean(react_score, na.rm = TRUE),
+            average_comment_score = mean(comment_score, na.rm = TRUE),
+            .groups = 'drop')
+
+ggplot(status_scores_yearly, aes(x = Year, y = average_react_score, color = status, group = status)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Average React Score by Status Over Time",
+       x = "Year",
+       y = "Average React Score",
+       color = "Status") +
+  theme_minimal()
+
+ggplot(status_scores_yearly, aes(x = Year, y = average_comment_score, color = status, group = status)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Average Comment Score by Status Over Time",
+       x = "Year",
+       y = "Average Comment Score",
+       color = "Status") +
+  theme_minimal()
+```
+
+
+## Insight
+Khi nhìn kết quả, có thể thấy được các điểm tương tác và comment khá ổn định ngoại trừ một số outlier làm biến đổi số lượng. Nhìn chung thì thấy được loại bài có hình ảnh và video nhận được sự tương tác trung bình cao hơn và có độ ổn định hơn
+
+## Phân tích từ phổ biến theo thời gian
+```{r, warning=FALSE}
+term_freq <- rowSums(as.matrix(neutralTDM))
+top_keywords <- head(sort(term_freq, decreasing = TRUE), 20)
+# Lấy danh sách các từ khóa
+keywords <- names(top_keywords)
+
+# Tạo ma trận chứa thông tin về sự xuất hiện của từng từ khóa trong mỗi bài viết
+keyword_matrix <- sapply(keywords, function(keyword) grepl(keyword, neutral$new_message, ignore.case = TRUE))
+
+# Tính ma trận tương quan giữa các từ khóa
+correlation_matrix <- cor(keyword_matrix)
+
+# Vẽ biểu đồ nhiệt tương quan
+heatmap(correlation_matrix, 
+        col = colorRampPalette(c("white", "blue"))(20),
+        main = "Heatmap of correlation for neutral post words")
+
+# Vẽ biểu đồ mạng các từ khóa có giá trị tương quan hơn 0.5
+keyword_network <- graph.adjacency(correlation_matrix > 0.5, mode = "undirected")
+plot(keyword_network, main = "Network diagram for Neutral post words")
+```
+#Cụm Negative
+```{r}
+head(negative)
+nrow(negative)
+```
+Cụm Negative chứa tổng cộng 1285 dòng. Vì đây là cụm có tổng điểm tương tác (react_score) thấp nhất, tức khả năng cao đây là cụm chứa những bài đăng có nội dung tiêu cực nên mới nhận lại những phản ứng như sad, angry (mang dấu âm trong công thức tính điểm). Tuy nhiên đây mới là suy đoán ban đầu nên nhóm sẽ tiến hành phân tích đặc điểm các  bài đăng của cụm này để hiểu rõ lý do thật sự dẫn đến tổng điểm tương tác thấp.
+```{r, warning = FALSE}
+# Tạo corpus cho cụm positive
+NegativeMessage <- negative$new_message
+NegativeCorpus <- Corpus(VectorSource(negativeMessage))
+```
+
+```{r}
+# Thêm metadata
+meta(NegativeCorpus, tag = "id") <- negative$post_id
+meta(NegativeCorpus, tag = "create_Year") <- negative$Year
+meta(NegativeCorpus, tag = "status") <- negative$status
+meta(NegativeCorpus, tag = "React_score") <- negative$react_score
+meta(NegativeCorpus, tag = "comment_score") <- negative$comment_score
+
+# Transform dữ liệu
+NegativeCorpus <- tm_map(NegativeCorpus, content_transformer(tolower)) # Viết thường
+NegativeCorpus <- tm_map(NegativeCorpus, removePunctuation) # Bỏ dấu
+NegativeCorpus <- tm_map(NegativeCorpus, removeNumbers) # Bỏ những con số
+NegativeCorpus <- tm_map(NegativeCorpus, removeWords, stopwords) # Bỏ stopwords
+NegativeCorpus <- tm_map(NegativeCorpus, stripWhitespace) # Bỏ khoảng trắng
+NegativeCorpus <- tm_map(NegativeCorpus, stemDocument) # Stemming
+```
+
+
+
+### Tạo TDM
+```{r, warning=FALSE}
+# Create the Term Document Matrix
+negativeTDM <- TermDocumentMatrix(neutralCorpus, control = list(wordLengths = c(1, Inf)))
+negativeTDM <- removeSparseTerms(negativeTDM, 0.9)
+
+# Examine the TDM
+inspect(negativeTDM)
+```
+
+# Wordcloud so sánh các từ xuất hiện thường xuyên của 3 cụm
+
+```{r}
+# Tạo wordcloud cho negative
+wordcloudNegative<-wordcloud( NegativeCorpus,min.freq = 10,colors = brewer.pal(9, "Blues"), random.order = F)
+title1 <- grid::textGrob("Negative Words", gp = grid::gpar(fontsize = 14, fontface = "bold", col = "blue"))
+
+# Tạo wordcloud cho positive
+wordcloudPositive<-wordcloud(positiveCorpus,min.freq = 10,colors = brewer.pal(9, "Greens"), random.order = F)
+title2 <- grid::textGrob("Positive Words", gp = grid::gpar(fontsize = 14, fontface = "bold", col = "green"))
+
+# Tạo wordcloud cho neutral
+wordcloudNeutral<-wordcloud(neutralCorpus,min.freq = 10,colors = brewer.pal(9, "Reds"), random.order = F)
+title3 <- grid::textGrob("Neutral Words", gp = grid::gpar(fontsize = 14, fontface = "bold", col = "red"))
+
+```
+Cả 3 wordcloud của 3 cụm Positive, Negative, Neutral đều cho thấy những từ tương tự nhau như “hàng”, “gà”, “trình”,… Vậy điều gì đã dẫn tới sự khác biệt trong số điểm tương tác của 3 cụm, và đặc điểm nào của nội dung bài đăng đã làm cho cụm Negative có số điểm thấp nhất?
+ Nhóm sẽ bắt đầu bằng việc phân tích số lượng thành phần các loại react mà bài đăng trong cụm này nhận được.
+
+```{r}
+#Vẽ đồ thị tính tổng react positive và negative  của cụm Negative
+sum_positive_react <- negative$like + negative$love + negative$haha + negative$wow +  negative$thankful +  negative$pride +  negative$care
+sum_negative_react <- negative$sad + negative$angry
+sum_positive_react  <- sum(sum_positive_react)
+sum_negative_react <- sum(sum_negative_react)
+total_react <- c(sum_positive_react,sum_negative_react)
+colnames(total_react) <- c("Positive react", "Negative react")
+lbls <- c("Positive react", "Positive react")
+barplot(total_react, names.arg = lbls, main="Bar Chart of React",  ylab = "Total React",  xlab = "Column Names")
+```
+Đồ thị trên cho thấy rõ lượng tương tác tiêu cực rất ít có thể nói là không đáng kể so với lượng tương tác tích cực. Từ đây, có thể kết luận rằng các các  bài đăng nằm trong cụm này có điểm tổng điểm thấp là do có lượng tương tác thấp, không được người dùng đón nhận, quan tâm nhiều. 
+Sau đây, nhóm sẽ phân tích kỹ hơn vào nội dung của các bài đăng trong cụm này.
+```{r}
+#Chuyển negative thành Corpus
+NegativeCorpus <- Corpus(VectorSource(negative$new_message))
+# Tạo Term Document matrix
+negativeTDM <- TermDocumentMatrix(NegativeCorpus, control = list(wordLenghts=c(1,Inf)))
+inspect(negativeTDM)
+# Tìm số lần xuất hiện của từng từ
+freqNegative <- rowSums(as.matrix(negativeTDM))
+# Tính số từ tương ứng với 2% lớn nhất
+top_2_percent <- length(freqNegative) * 0.02
+# Sắp xếp và lấy 2% từ xuất hiện nhiều nhất
+top_words <- head(sort(freqNegative, decreasing = TRUE), n = top_2_percent)
+# In ra danh sách các từ xuất hiện nhiều nhất
+print(top_words)
+```
+Tiếp theo, nhóm sẽ tìm những từ có khả năng cao xuất hiện cùng với 5 từ có lượt xuất hiện cao nhất để biết được những nội dung phổ biến trong cụm bài đăng này.
+```{r}
+#Tìm những từ liên quan
+findAssocs(negativeTDM, 'hàng',.5)
+findAssocs(negativeTDM, 'giải',.5)
+findAssocs(negativeTDM, 'gà',.5)
+findAssocs(negativeTDM, 'tặng',.5)
+findAssocs(negativeTDM, 'vui',.4)
+```
+Từ kết quả trên nhóm có thể ghép ra được những cụm từ cùng chủ đề thường xuyên xuất hiện cùng nhau với tần suất cao và suy đoán được những chủ đề của các bài đăng này: 
++ Hàng: tặng, giao, dịch , tích, 💟danh,💟member
+	Chủ đề liên quan: các chương trình khuyến mãi, ưu đãi, và các hoạt động liên quan đến việc tặng quà, giao hàng, giao dịch, tích điểm, đăng ký thành viên, hoặc các thông tin về danh sách thành viên.
++ Giải: khích, nhì, thưởng, cấu, marketingvn
+	Chủ đề liên quan: công bố kết quả các minigame, các sự kiện thưởng dành cho khách hàng, thông báo cơ cấu giải thưởng các cuộc thi nhằm marketing cho Lotteria
++ Gà: chiên, pepsi, miếng, khoai, tây, teriyaki, fish, package,🎉funny,🎉happy,🎉lucky,🎉sinh, thiệp, đùi¸ nón, nhật, ôm, burger, nugget           gói, khổng, lồ, tiệc, thỏa, gối.
+	Chủ đề liên quan: giới thiệu các combo gồm các món bán chạy như gà chiên, gà nugget, burger gà, gà teriyaki, thông báo về các sự kiện, tiệc tùng, sinh nhật, mà mà khách hàng có thể tổ chức tại Lotteria.
++ Tặng: 💟danh,💟member, 💟day, mắn, may, tích, lpoint, đợt
+	Chủ đề liên quan: các chương trình khuyến mãi, ưu đãi, và các sự kiện đặc biệt dành riêng cho thành viên của Lotteria vào những ngày đặc biệt hoặc các đợt khuyến mãi lớn như mùa lễ hội Noel,…
++ Vui: nhộn, tiệc, sinh, trò, bé, thiệp, nón
+	Chủ đề liên quan: thông báo các sự kiện, hoạt động vui chơi, tặng quà khuyến mãi áp dụng dành riêng cho trẻ em tại Lotteria.
+Dựa vào các cụm từ xuất hiện thường xuyên, chúng ta có được cái nhìn tổng quan về nội dung phổ biến của các bài đăng trong cụm Negative. Chủ yếu là các thông báo về hoạt động mới, sự kiện, giới thiệu các chương trình khuyến mãi như combo, ưu đãi cho thành viên tích điểm và thông báo kết quả của các cuộc thi, minigame.
+Tuy nhiên, các chủ đề này thường không có điểm đặc biệt đủ để thu hút sự chú ý của người dùng. Trong các bài đăng, thường không có lời kêu gọi hành động (Call-to-action) cũng như phần thưởng kèm theo. Do đó, thông thường những chủ đề này sẽ không nhận được nhiều sự tương tác từ phía người dùng.
+```{r}
+# Vẽ biểu đồ hiển thị giờ đăng của các bài
+negative$Hour <- as.POSIXct(negative$Hour, format = "%H")
+ggplot(negative, aes(x = Hour)) +
+  geom_histogram(binwidth = 1, fill = "skyblue", color = "black") +
+  labs(title = "Giờ Đăng Bài",
+       x = "Giờ Đăng",
+       y = "Số Lượng Bài Đăng") +
+  theme_minimal() +
+theme(plot.title = element_text(hjust = 0.5))
+```
+Biểu đồ trên cho thấy các bài đăng trong cụm Negative chủ yếu được đăng tải trong khoảng thời gian từ 8h – 11h và từ 14 – 17h. Điểm chung là cả hai khung giờ này đều nằm trong giờ hành chính, là khoảng thời gian đa số mọi người đều đi học và đi làm, không có thời gian lướt mạng xã hội. Đăng bài truyền thông trong khoảng thời gian này sẽ không có nhiều người xem, do đó, đây rất có thể là nguyên nhân dẫn đến lượt tương tác thấp của các bài đăng nằm trong cụm này.
+#Kết luận
+Ban đầu nhóm ghi nhận đây là cụm Negative tức là cụm gồm những bài đăng nghi ngờ có tính chất hoặc chứa từ ngữ có tính chất tiêu cực do điểm tương tác (react_score) của cụm là thấp nhất. Tuy nhiên, qua quá trình phân tích và so sánh các từ phổ biến của cụm với 2 cụm Positive và Neutral không nhận thấy có điểm gì bất thường, cũng như số lượng tương tác tiêu cực từ người dùng chiếm rất ít trong tổng lượng tương tác. 
+Có thể kết luận rằng các bài đăng nằm trong cụm Negative không có tính chất tiêu cực hoặc gây tranh cãi, đây chỉ đơn thuần là những bài có nội dung chủ đề không đủ thu hút người dùng và được đăng vào những khung giờ nằm trong giờ hành chính nên mới có lượt tương tác thấp.
+
+## Kết luận
+6. Insight và Kết Luận:
+Từ những phân tích trên, nhóm rút ra một số kết luận như sau:
+Giai đoạn từ năm 2012 - 2016, lượng bài viết đăng tải tuy nhiều nhưng lượng tương tác lại thấp, có thể liên hệ nguyên do thực tế là do số lượng người dùng mạng xã hội còn ít và người dùng còn ít quan tâm về các bài viết quảng cáo trên facebook.
+Giai đoạn từ năm 2016 - 2022, lượng tương tác của fanpage tăng đáng kể, dù số bài đăng không tăng và thậm chí ít hơn giai đoạn trước. Có thể thấy từ năm 2016, fanpage của Lotteria đã phát triển hơn.
+
+Dựa vào phần phân tích 3 cụm positive, neagative và neutral, có thể thấy một số đặc điểm từ các bài đăng của Lotteria như:
+Dùng nhiều từ liên quan tới độ nhận diện thương hiệu: Lotteria, Lotteriavietnam, gà rán, cửa hàng, pepsi, khoai tây, giao hàng,... 
+
+Về chủ đề, các chủ đề thường được quan tâm nhiều là Chương trình khuyến mãi và các cuộc thi. Các từ khóa đi kèm là: combo, khuyến mãi, chương trình,... Có thể thấy người dùng quan tâm nhiều tới các phúc lợi từ các chương trình giảm giá, còn về chủ đề các cuộc thi có thể dự đoán nguyên do là những phần thưởng hấp dẫn và những yêu cầu trong cuộc thi thường là bắt buộc người tham giá các bước như like, share, comment nên có tương tác cao hơn. Ngược lại, các chủ đề ít được quan tâm thường là các bài viết thông báo như: thông báo giải thưởng cuộc thi, thông báo sự kiện, các hoạt động cho trẻ em. 
+
+Các khung giờ được tương tác cao nhất là từ 10 - 11 giờ sáng, có thể dự đoán do khung giờ này gần tới giờ ăn trưa của học sinh viên, dân văn phòng nên được tương tác cao, là khung giờ phù hợp cho mọi người lựa chọn và đặt đồ ăn. Các các khung giờ khuya từ 19 giờ - 21 giờ thường ít được tương tác vì đây là thời gian nghỉ ngơi cuối ngày, và cũng dẫn đến khung giờ hiếm khi đăng bài trên fanpage là từ 23 giờ đến 7 giờ sáng. Còn lại các khung giờ khác thì lượng tương tác ở mức tương đối.
+
+7. Đề Xuất Chiến Lược Cho Tương Lai
+Dựa vào những kết luận trên, nhóm đưa ra một số đề xuất chiến lược tối ưu hóa về độ phổ biến và tương tác như đa dạng hóa chủ đề bài viết như:
+-  Ngoài các bài viết liên quan trực tiếp tới bán hàng như giới thiệu menu, chương trình khuyến mãi,... thì thêm các bài viết nhằm mục đích tăng tương tác với chủ đề bắt trend để dễ tiếp cận và hấp dẫn người dùng trẻ hơn. Tạo ra các loại nội dung đa dạng như video, hình ảnh, bài viết văn bản để phù hợp với sở thích và thói quen tiêu dùng của đối tượng mục tiêu.
+- Lập kế hoạch đăng bài viết vào các khung giờ mà người dùng thường online và hoạt động trên mạng xã hội, như vào giờ trưa và buổi tối sau khi kết thúc công việc: đăng bài về giới thiệu giảm giá, menu, giao hàng,... vào các khung giờ gần bữa ăn (10 - 11 giờ sáng, 16 - 18 giờ tối), các bài viết về giới thiệu sự kiện, cuộc thi vào các giờ nghỉ ngơi và sau bữa ăn (19 - 21 giờ), hạn chế đăng bài vào khung giờ khuya (0 - 7 giờ sáng). 
+- Cải thiện các nội dung hình ảnh, video đa dạng tạo ra cảm xúc kích thích tương tác từ cộng đồng. Thúc đẩy sự tham gia của người dùng bằng cách tổ chức các cuộc thi, trò chơi hoặc thăm dò ý kiến để tạo ra môi trường năng động và thú vị.
